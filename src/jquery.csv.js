@@ -42,6 +42,7 @@ RegExp.escape= function(s) {
     defaults: {
       separator:',',
       delimiter:'"',
+      escaper:'\\',
       headers:true
     },
 
@@ -785,12 +786,26 @@ RegExp.escape= function(s) {
       config.experimental = 'experimental' in options ? options.experimental : false;
 
       if(!config.experimental) {
-        throw new Error('not implemented');
+        throw new Error(
+            'Experimental feature. If you are sure you are ready to use it - ' +
+            'pass `experimental: true` option.');
       }
 
-      var output = [];
-      for(i in arrays) {
-        output.push(arrays[i]);
+      var output = '',
+          line,
+          lineValues,
+          i, j;
+
+      for (i in arrays) {
+        line = arrays[i];
+        lineValues = [];
+        for (j in line) {
+          lineValues.push(
+              config.delimiter +
+              line[j].toString().replace(config.delimiter, config.escaper + config.delimiter) +
+              config.delimiter);
+        }
+        output += lineValues.join(config.separator) + '\n';
       }
 
       // push the value to a callback if one is defined
@@ -802,12 +817,20 @@ RegExp.escape= function(s) {
     },
 
     /**
-     * $.csv.fromObjects(objects)
+     * $.csv.fromObjects2CSV(objects)
      * Converts a javascript dictionary to a CSV string.
+     *
      * @param {Object} objects An array of objects containing the data.
      * @param {Object} [options] An object containing user-defined options.
      * @param {Character} [separator] An override for the separator character. Defaults to a comma(,).
      * @param {Character} [delimiter] An override for the delimiter character. Defaults to a double-quote(").
+     * @param {Character} [ownOnly] Output only properties, which are defined
+     *   exactly for this object and not for it's parents
+     *   (@see 'Object.hasOwnProperty()' for details). Defaults to true.
+     * @param {Character} [sortOrder] Sort order of columns (named after
+     *   object properties). Use 'alpha' for alphabetic. Default is 'declare',
+     *   which means, that properties will _probably_ appear in order they were
+     *   declared for the object. But without any guarantee.
      *
      * This method generates a CSV file from an array of objects (name:value pairs).
      * It starts by detecting the headers and adding them as the first line of
@@ -820,22 +843,52 @@ RegExp.escape= function(s) {
       config.separator = 'separator' in options ? options.separator : $.csv.defaults.separator;
       config.delimiter = 'delimiter' in options ? options.delimiter : $.csv.defaults.delimiter;
       config.experimental = 'experimental' in options ? options.experimental : false;
+      config.headers = 'headers' in options ? options.headers : $.csv.defaults.headers;
+      config.ownOnly = 'ownOnly' in options ? options.ownOnly : true;
+      config.sortOrder = 'sortOrder' in options ? options.sortOrder : 'declare';
 
       if(!config.experimental) {
-        throw new Error('not implemented');
+        throw new Error(
+            'Experimental feature. If you are sure you are ready to use it - ' +
+            'pass `experimental: true` option.');
       }
 
-      var output = [];
-      for(i in objects) {
-        output.push(arrays[i]);
+      var o, propName, props = [];
+
+      for (o in objects) {
+        for (propName in objects[o]) {
+          if ((! config.ownOnly || objects[o].hasOwnProperty(propName))
+              && (props.indexOf(propName) < 0)
+              && (typeof objects[o][propName] !== 'function')) {
+
+            props.push(propName);
+          }
+        }
+      }
+      if (config.sortOrder === 'alpha') {
+        props.sort();
+      } // else {} - nothing to do for 'declare' order
+
+      var p, line, output = [];
+      if (config.headers) {
+        output.push(props);
+      }
+
+      for (o in objects) {
+        line = [];
+        for (p = 0; p < props.length; p++) {
+          propName = props[p];
+          if (propName in objects[o] && typeof objects[o][propName] !== 'function') {
+            line.push(objects[o][propName]);
+          } else {
+            line.push('');
+          }
+        }
+        output.push(line);
       }
 
       // push the value to a callback if one is defined
-      if(!config.callback) {
-        return output;
-      } else {
-        config.callback('', output);
-      }
+      return $.csv.fromArrays(output, options, config.callback);
     }
   };
 
