@@ -763,6 +763,9 @@ RegExp.escape= function(s) {
             var n, levelObj = object;
             for (n = 0; n < headerItems.length - 1; n++) {
               var node = headerItems[n];
+              if (node === '') {
+                continue;
+              }
               if (! (node in levelObj)) {
                 levelObj[node] = {};
               }
