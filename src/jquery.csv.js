@@ -680,8 +680,6 @@ RegExp.escape= function(s) {
      * @param {Character} [separator] An override for the separator character. Defaults to a comma(,).
      * @param {Character} [delimiter] An override for the delimiter character. Defaults to a double-quote(").
      * @param {Boolean} [headers] Indicates whether the data contains a header line. Defaults to true.
-     * @param {Boolean} [tree] Indicates whether the header values should be splitted to create a tree of objects. Defaults to false.
-     * @param {Character} [treeSeparator] Indicates which character should be used to split header values.Defaults to a dot(.).
      *
      * This method deals with multi-line CSV strings. Where the headers line is
      * used as the key for each value per entry.
@@ -694,8 +692,6 @@ RegExp.escape= function(s) {
       config.delimiter = 'delimiter' in options ? options.delimiter : $.csv.defaults.delimiter;
       config.headers = 'headers' in options ? options.headers : $.csv.defaults.headers;
       options.start = 'start' in options ? options.start : 1;
-      options.tree = 'tree' in options ? options.tree : false;
-      options.treeSeparator = 'treeSeparator' in options ? options.treeSeparator : '.';
       
       // account for headers
       if(config.headers) {
@@ -720,9 +716,7 @@ RegExp.escape= function(s) {
           rowNum: 1,
           colNum: 1
         },
-        match: false,
-        tree: options.tree,
-        treeSeparator: options.treeSeparator
+        match: false
       };
 
       // fetch the headers
@@ -755,27 +749,7 @@ RegExp.escape= function(s) {
         var entry = $.csv.toArray(lines[i], options);
         var object = {};
         for(var j in headers) {
-          /* It's propably not good for a performance to do it here.
-           * But it's easier to implement (let it be a proof of concept for a while).
-           */
-          if (options.tree) {
-            var headerItems = headers[j].split(options.treeSeparator);
-            var n, levelObj = object;
-            for (n = 0; n < headerItems.length - 1; n++) {
-              var node = headerItems[n];
-              if (node === '') {
-                continue;
-              }
-              if (! (node in levelObj)) {
-                levelObj[node] = {};
-              }
-              levelObj = levelObj[node];
-            }
-            var lastHeaderItem = headerItems[headerItems.length - 1];
-            levelObj[lastHeaderItem] = entry[j];
-          } else {
-            object[headers[j]] = entry[j];
-          }
+          object[headers[j]] = entry[j];
         }
         data.push(object);
         

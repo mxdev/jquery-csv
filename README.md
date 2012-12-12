@@ -23,5 +23,4 @@ How this fork differs from the origin:
 
 * Convert an array of values to CSV (implemented, but now widely tested)
 * Convert an array of objects to CSV (implemented, but now widely tested)
-* Converting from csv to objects: build "trees" instead of flat objects.
 
