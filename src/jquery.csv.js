@@ -42,7 +42,6 @@ RegExp.escape= function(s) {
     defaults: {
       separator:',',
       delimiter:'"',
-      escaper:'\\',
       headers:true
     },
 
@@ -586,6 +585,34 @@ RegExp.escape= function(s) {
       }
     },
 
+    helpers: {
+
+      /**
+       * $.csv.helpers.collectPropertyNames(objectsArray)
+       * Collects all unique property names from all passed objects.
+       *
+       * @param {Array} objects Objects to collect properties from.
+       *
+       * Returns an array of property names (array will be empty,
+       * if objects have no own properties).
+       */
+      collectPropertyNames: function (objects) {
+
+        var o, propName, props = [];
+        for (o in objects) {
+          for (propName in objects[o]) {
+            if ((objects[o].hasOwnProperty(propName))
+                && (props.indexOf(propName) < 0)
+                && (typeof objects[o][propName] !== 'function')) {
+
+              props.push(propName);
+            }
+          }
+        }
+        return props;
+      }
+    },
+
     /**
      * $.csv.toArray(csv)
      * Converts a CSV entry string to a javascript array.
@@ -782,7 +809,6 @@ RegExp.escape= function(s) {
       config.callback = ((callback !== undefined && typeof(callback) === 'function') ? callback : false);
       config.separator = 'separator' in options ? options.separator : $.csv.defaults.separator;
       config.delimiter = 'delimiter' in options ? options.delimiter : $.csv.defaults.delimiter;
-      config.escaper = 'escaper' in options ? options.escaper : $.csv.defaults.escaper;
       config.experimental = 'experimental' in options ? options.experimental : false;
 
       if(!config.experimental) {
@@ -800,12 +826,21 @@ RegExp.escape= function(s) {
         line = arrays[i];
         lineValues = [];
         for (j in line) {
-          lineValues.push(
-              config.delimiter +
-              line[j].toString().replace(config.delimiter, config.escaper + config.delimiter) +
-              config.delimiter);
+          var strValue = line[j].toString();
+          if (strValue.indexOf(config.delimiter) > -1) {
+            strValue = strValue.replace(config.delimiter, config.delimiter + config.delimiter);
+          }
+
+          var escMatcher = '\n|\r|S|D';
+          escMatcher = escMatcher.replace('S', config.separator);
+          escMatcher = escMatcher.replace('D', config.delimiter);
+
+          if (strValue.search(escMatcher) > -1) {
+            strValue = config.delimiter + strValue + config.delimiter;
+          }
+          lineValues.push(strValue);
         }
-        output += lineValues.join(config.separator) + '\n';
+        output += lineValues.join(config.separator) + '\r\n';
       }
 
       // push the value to a callback if one is defined
@@ -817,26 +852,28 @@ RegExp.escape= function(s) {
     },
 
     /**
-     * $.csv.fromObjects2CSV(objects)
+     * $.csv.fromObjects(objects)
      * Converts a javascript dictionary to a CSV string.
      *
      * @param {Object} objects An array of objects containing the data.
      * @param {Object} [options] An object containing user-defined options.
      * @param {Character} [separator] An override for the separator character. Defaults to a comma(,).
      * @param {Character} [delimiter] An override for the delimiter character. Defaults to a double-quote(").
-     * @param {Character} [ownOnly] Output only properties, which are defined
-     *   exactly for this object and not for it's parents
-     *   (@see 'Object.hasOwnProperty()' for details). Defaults to true.
      * @param {Character} [sortOrder] Sort order of columns (named after
      *   object properties). Use 'alpha' for alphabetic. Default is 'declare',
      *   which means, that properties will _probably_ appear in order they were
      *   declared for the object. But without any guarantee.
+     * @param {Character or Array} [manualOrder] Manually order columns. May be
+     * a strin in a same csv format as an output or an array of header names
+     * (array items won't be parsed). All the properties, not present in
+     * `manualOrder` will be appended to the end in accordance with `sortOrder`
+     * option. So the `manualOrder` always takes preference, if present.
      *
      * This method generates a CSV file from an array of objects (name:value pairs).
      * It starts by detecting the headers and adding them as the first line of
      * the CSV file, followed by a structured dump of the data.
      */
-    fromObjects2CSV: function(objects, options, callback) {
+    fromObjects: function(objects, options, callback) {
       var options = (options !== undefined ? options : {});
       var config = {};
       config.callback = ((callback !== undefined && typeof(callback) === 'function') ? callback : false);
@@ -844,8 +881,12 @@ RegExp.escape= function(s) {
       config.delimiter = 'delimiter' in options ? options.delimiter : $.csv.defaults.delimiter;
       config.experimental = 'experimental' in options ? options.experimental : false;
       config.headers = 'headers' in options ? options.headers : $.csv.defaults.headers;
-      config.ownOnly = 'ownOnly' in options ? options.ownOnly : true;
       config.sortOrder = 'sortOrder' in options ? options.sortOrder : 'declare';
+      config.manualOrder = 'manualOrder' in options ? options.manualOrder : [];
+
+      if (typeof config.manualOrder === 'string') {
+        config.manualOrder = $.csv.toArray(config.manualOrder, options);
+      }
 
       if(!config.experimental) {
         throw new Error(
@@ -853,21 +894,24 @@ RegExp.escape= function(s) {
             'pass `experimental: true` option.');
       }
 
-      var o, propName, props = [];
 
-      for (o in objects) {
-        for (propName in objects[o]) {
-          if ((! config.ownOnly || objects[o].hasOwnProperty(propName))
-              && (props.indexOf(propName) < 0)
-              && (typeof objects[o][propName] !== 'function')) {
+      var props = $.csv.helpers.collectPropertyNames(objects);
 
-            props.push(propName);
-          }
-        }
-      }
       if (config.sortOrder === 'alpha') {
         props.sort();
       } // else {} - nothing to do for 'declare' order
+
+      if (config.manualOrder.length > 0) {
+
+        var propsManual = [].concat(config.manualOrder);
+        var p;
+        for (p = 0; p < props.length; p++) {
+          if (propsManual.indexOf( props[p] ) < 0) {
+            propsManual.push( props[p] );
+          }
+        }
+        props = propsManual;
+      }
 
       var p, line, output = [];
       if (config.headers) {
