@@ -21,6 +21,7 @@ More information on a original [projects page](http://code.google.com/p/jquery-c
 
 How this fork differs from the origin:
 
-* Convert an array of values to CSV (implemented, but now widely tested)
-* Convert an array of objects to CSV (implemented, but now widely tested)
+* Convert an array of values to CSV (implemented, but not widely tested)
+* Convert an array of objects to CSV (implemented, but not widely tested)
+* Simplified usage with nodejs. `jQuery` is no longer required to be `require`d :)
 
