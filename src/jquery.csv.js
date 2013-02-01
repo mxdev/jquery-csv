@@ -754,7 +754,8 @@ RegExp.escape= function(s) {
           rowNum: 1,
           colNum: 1
         },
-        match: false
+        match: false,
+        transform: options.transform
       };
 
       // fetch the headers
@@ -789,7 +790,11 @@ RegExp.escape= function(s) {
         for(var j in headers) {
           object[headers[j]] = entry[j];
         }
-        data.push(object);
+        if (options.transform !== undefined) {
+          data.push(options.transform.call(undefined, object));
+        } else {
+          data.push(object);
+        }
         
         // update row state
         options.state.rowNum++;
@@ -896,9 +901,10 @@ RegExp.escape= function(s) {
       config.headers = 'headers' in options ? options.headers : $.csv.defaults.headers;
       config.sortOrder = 'sortOrder' in options ? options.sortOrder : 'declare';
       config.manualOrder = 'manualOrder' in options ? options.manualOrder : [];
+      config.transform = options.transform;
 
       if (typeof config.manualOrder === 'string') {
-        config.manualOrder = $.csv.toArray(config.manualOrder, options);
+        config.manualOrder = $.csv.toArray(config.manualOrder, config);
       }
 
       if(!config.experimental) {
@@ -907,6 +913,15 @@ RegExp.escape= function(s) {
             'pass `experimental: true` option.');
       }
 
+      if (config.transform !== undefined) {
+        var origObjects = objects;
+        objects = [];
+
+        var i;
+        for (i = 0; i < origObjects.length; i++) {
+          objects.push(config.transform.call(undefined, origObjects[i]));
+        }
+      }
 
       var props = $.csv.helpers.collectPropertyNames(objects);
 
